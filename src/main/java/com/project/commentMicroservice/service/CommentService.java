@@ -10,4 +10,5 @@ public interface CommentService {
     Comment getCommentById(String commentId);
     void deleteComment(String commentId);
     Page<Comment> getCommentByParentId(String parentId, Pageable pageable);
+    String getRootParentId(String commentId);
 }

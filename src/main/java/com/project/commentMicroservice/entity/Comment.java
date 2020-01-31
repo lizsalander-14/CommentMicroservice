@@ -25,4 +25,6 @@ public class Comment {
     private String parentId;
     private String comment;
     private int level;
+    private int likes;
+    private int dislikes;
 }

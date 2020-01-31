@@ -13,4 +13,5 @@ import java.util.List;
 public interface CommentRepository extends CrudRepository<Comment,String>,PagingAndSortingRepository<Comment,String> {
 
     Page<Comment> findByParentId(String parentId, Pageable pageable);
+    //void deleteByParentId(String parentId);
 }

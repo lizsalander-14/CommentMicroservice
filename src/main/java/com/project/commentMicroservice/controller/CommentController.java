@@ -4,6 +4,7 @@ import com.project.commentMicroservice.dto.CommentDTO;
 import com.project.commentMicroservice.dto.ResponseDTO;
 import com.project.commentMicroservice.entity.Comment;
 import com.project.commentMicroservice.service.CommentService;
+import com.project.commentMicroservice.service.impl.ProducerService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -24,22 +25,43 @@ public class CommentController {
     @Autowired
     CommentService commentService;
 
+    @Autowired
+    ProducerService producerService;
+
     @PostMapping("/addComment")
     public ResponseDTO<Comment> addComment(@RequestHeader("userId")String userId, @RequestBody CommentDTO commentDTO){
         ResponseDTO<Comment> responseDTO=new ResponseDTO<>();
+
+        //call questionAndAnswer micro-service to check if thread is open
+        String rootParentId;
+        if(commentDTO.getParentId().startsWith("C_")){
+            rootParentId=commentService.getRootParentId(commentDTO.getParentId());
+        }
+        else {
+            rootParentId=commentDTO.getParentId();
+        }
+        final String uri="http://10.177.68.235/questions/isThreadOpenCheck/"+rootParentId;
+        RestTemplate restTemplate=new RestTemplate();
+        boolean result=restTemplate.getForObject(uri,boolean.class);
+        if(!result){
+            responseDTO.setSuccess(false);
+            responseDTO.setMessage("Can't comment as thread is closed!");
+            return responseDTO;
+        }
+
         Comment comment=new Comment();
         BeanUtils.copyProperties(commentDTO,comment);
         comment.setUserId(userId);
-        if(comment.getParentId().startsWith("C_")){
-            Comment parentComment=commentService.getCommentById(comment.getParentId());
-            if(parentComment.getLevel()<5){
-                comment.setLevel(parentComment.getLevel()+1);
-            }
-            else{
-                responseDTO.setSuccess(false);
-                responseDTO.setMessage("Comment level cannot exceed 5!");
-                return responseDTO;
-            }
+        comment.setLikes(0);
+        comment.setDislikes(0);
+        Comment parentComment=commentService.getCommentById(comment.getParentId());
+        if(comment.getParentId().startsWith("C_") && (parentComment.getLevel()<5)){
+            comment.setLevel(parentComment.getLevel()+1);
+        }
+        else if(comment.getParentId().startsWith("C_") && (parentComment.getLevel()>=5)){
+            responseDTO.setSuccess(false);
+            responseDTO.setMessage("Comment level cannot exceed 5!");
+            return responseDTO;
         }
         else{
             comment.setLevel(1);
@@ -48,13 +70,7 @@ public class CommentController {
             commentService.addComment(comment);
 
             //send to notification micro-service
-//            final String uri="";
-//            HttpHeaders headers=new HttpHeaders();
-//            headers.setContentType(MediaType.APPLICATION_JSON);
-//            HttpEntity<Comment> entityReq=new HttpEntity<>(comment,headers);
-//            RestTemplate restTemplate=new RestTemplate();
-//            String result=restTemplate.postForObject(uri,entityReq,String.class);
-//            System.out.println(result);
+            producerService.produce(comment);
 
             responseDTO.setSuccess(true);
             responseDTO.setData(comment);
@@ -95,6 +111,65 @@ public class CommentController {
         catch (Exception e){
             responseDTO.setSuccess(false);
             responseDTO.setMessage("Couldn't delete comment");
+        }
+        return responseDTO;
+    }
+
+    @GetMapping("/getUserIdByCommentId")
+    public ResponseDTO<String> getUserIdByCommentId(@RequestBody String commentId){
+        ResponseDTO<String> responseDTO=new ResponseDTO<>();
+        try{
+            String userId=commentService.getCommentById(commentId).getUserId();
+            responseDTO.setSuccess(true);
+            responseDTO.setData(userId);
+        }
+        catch (Exception e){
+            responseDTO.setSuccess(false);
+            responseDTO.setMessage("Couldn't retrieve user id!");
+        }
+        return responseDTO;
+    }
+
+    @PostMapping("/addLike/{commentId}")
+    public ResponseDTO<String> addLike(@PathVariable("commentId")String commentId){
+        ResponseDTO<String> responseDTO=new ResponseDTO<>();
+        try{
+            Comment comment=commentService.getCommentById(commentId);
+            comment.setLikes(comment.getLikes()+1);
+
+            //call profile micro-service to add score
+//            final String uri="http://  /profile/1/"+comment.getUserId();
+//            RestTemplate restTemplate=new RestTemplate();
+//            restTemplate.put(uri,null);
+
+            responseDTO.setSuccess(true);
+            responseDTO.setData("Added a like!");
+        }
+        catch (Exception e){
+            responseDTO.setSuccess(false);
+            responseDTO.setMessage("Error in adding like!");
+        }
+        return responseDTO;
+    }
+
+    @PostMapping("/addDislike/{commentId}")
+    public ResponseDTO<String> addDislike(@PathVariable("commentId")String commentId){
+        ResponseDTO<String> responseDTO=new ResponseDTO<>();
+        try{
+            Comment comment=commentService.getCommentById(commentId);
+            comment.setDislikes(comment.getDislikes()+1);
+
+            //call profile micro-service to decrease score
+//            final String uri="http://  /profile/-1/"+comment.getUserId();
+//            RestTemplate restTemplate=new RestTemplate();
+//            restTemplate.put(uri,null);
+
+            responseDTO.setSuccess(true);
+            responseDTO.setData("Added a dislike!");
+        }
+        catch (Exception e){
+            responseDTO.setSuccess(false);
+            responseDTO.setMessage("Error in adding dislike!");
         }
         return responseDTO;
     }
