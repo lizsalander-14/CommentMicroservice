@@ -27,4 +27,5 @@ public class Comment {
     private int level;
     private int likes;
     private int dislikes;
+    private String questionOrAnswerUserId;
 }

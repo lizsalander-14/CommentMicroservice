@@ -7,6 +7,7 @@ import com.project.commentMicroservice.service.CommentService;
 import com.project.commentMicroservice.service.impl.ProducerService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpEntity;
@@ -33,21 +34,21 @@ public class CommentController {
         ResponseDTO<Comment> responseDTO=new ResponseDTO<>();
 
         //call questionAndAnswer micro-service to check if thread is open
-        String rootParentId;
-        if(commentDTO.getParentId().startsWith("C_")){
-            rootParentId=commentService.getRootParentId(commentDTO.getParentId());
-        }
-        else {
-            rootParentId=commentDTO.getParentId();
-        }
-        final String uri="http://10.177.68.235/questions/isThreadOpenCheck/"+rootParentId;
-        RestTemplate restTemplate=new RestTemplate();
-        boolean result=restTemplate.getForObject(uri,boolean.class);
-        if(!result){
-            responseDTO.setSuccess(false);
-            responseDTO.setMessage("Can't comment as thread is closed!");
-            return responseDTO;
-        }
+//        String rootParentId;
+//        if(commentDTO.getParentId().startsWith("C_")){
+//            rootParentId=commentService.getRootParentId(commentDTO.getParentId());
+//        }
+//        else {
+//            rootParentId=commentDTO.getParentId();
+//        }
+//        final String uri="http://10.177.68.235/questions/isThreadOpenCheck/"+rootParentId;
+//        RestTemplate restTemplate=new RestTemplate();
+//        boolean result=restTemplate.getForObject(uri,boolean.class);
+//        if(!result){
+//            responseDTO.setSuccess(false);
+//            responseDTO.setMessage("Can't comment as thread is closed!");
+//            return responseDTO;
+//        }
 
         Comment comment=new Comment();
         BeanUtils.copyProperties(commentDTO,comment);
@@ -57,6 +58,7 @@ public class CommentController {
         Comment parentComment=commentService.getCommentById(comment.getParentId());
         if(comment.getParentId().startsWith("C_") && (parentComment.getLevel()<5)){
             comment.setLevel(parentComment.getLevel()+1);
+            comment.setQuestionOrAnswerUserId(parentComment.getQuestionOrAnswerUserId());
         }
         else if(comment.getParentId().startsWith("C_") && (parentComment.getLevel()>=5)){
             responseDTO.setSuccess(false);
@@ -84,7 +86,7 @@ public class CommentController {
     }
 
     @GetMapping("/getComment/{parentId}/{pages}/{size}")
-    public ResponseDTO<Page<Comment>> getComment(@PathVariable("parentId")String id ,@PathVariable("pages")int pages,@PathVariable("size")int size){
+    public ResponseDTO<Page<Comment>> getComment(@PathVariable("parentId")String id , @PathVariable("pages")@DefaultValue("0") int pages, @PathVariable("size")@DefaultValue("1") int size){
         ResponseDTO<Page<Comment>> responseDTO=new ResponseDTO<>();
         try{
             Pageable pageable=PageRequest.of(pages,size);
@@ -138,9 +140,9 @@ public class CommentController {
             comment.setLikes(comment.getLikes()+1);
 
             //call profile micro-service to add score
-//            final String uri="http://  /profile/1/"+comment.getUserId();
-//            RestTemplate restTemplate=new RestTemplate();
-//            restTemplate.put(uri,null);
+            final String uri="http://172.16.20.119:8080/profile/addPoints/1/"+comment.getUserId();
+            RestTemplate restTemplate=new RestTemplate();
+            restTemplate.put(uri,null);
 
             responseDTO.setSuccess(true);
             responseDTO.setData("Added a like!");
@@ -160,9 +162,9 @@ public class CommentController {
             comment.setDislikes(comment.getDislikes()+1);
 
             //call profile micro-service to decrease score
-//            final String uri="http://  /profile/-1/"+comment.getUserId();
-//            RestTemplate restTemplate=new RestTemplate();
-//            restTemplate.put(uri,null);
+            final String uri="http://1172.16.20.119:8080/profile/addPoints/-1/"+comment.getUserId();
+            RestTemplate restTemplate=new RestTemplate();
+            restTemplate.put(uri,null);
 
             responseDTO.setSuccess(true);
             responseDTO.setData("Added a dislike!");

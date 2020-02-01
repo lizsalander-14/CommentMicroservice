@@ -33,9 +33,9 @@ public class CommentServiceImpl implements CommentService {
         int remainingPoints=comment.getLikes()-comment.getDislikes();
 
         //call profile micro-service to deduct remaining pts
-//        final String uri="http://  /profile/"+String.valueOf(-remainingPoints)+"/"+comment.getUserId();
-//        RestTemplate restTemplate=new RestTemplate();
-//        restTemplate.put(uri,null);
+        final String uri="http://172.16.20.119:8080/profile/addPoints/"+String.valueOf(-remainingPoints)+"/"+comment.getUserId();
+        RestTemplate restTemplate=new RestTemplate();
+        restTemplate.put(uri,null);
 
         commentRepository.deleteById(commentId);
 
@@ -56,11 +56,11 @@ public class CommentServiceImpl implements CommentService {
         return commentRepository.findByParentId(parentId,pageable);
     }
 
-    @Override
-    public String getRootParentId(String commentId) {
-        String parentId=getCommentById(commentId).getParentId();
-        if(parentId.startsWith("C_"))
-            return getRootParentId(parentId);
-        return parentId;
-    }
+//    @Override
+//    public String getRootParentId(String commentId) {
+//        String parentId=getCommentById(commentId).getParentId();
+//        if(parentId.startsWith("C_"))
+//            return getRootParentId(parentId);
+//        return parentId;
+//    }
 }
